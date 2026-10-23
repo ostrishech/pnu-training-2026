@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 국립부산대학교 교직원 직무연수 안내 포털</title>
+  
+  <!-- Favicon / Meta -->
+  <meta name="description" content="미래 교육·연구 혁신을 지원하는 2026학년도 국립부산대학교 교직원 직무연수 종합 안내 포털">
+  
+  <!-- Pretendard Font -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Roboto', 'sans-serif'],
+          },
+          colors: {
+            pnu: {
+              blue: '#003876',      // 부산대 공식 시그니처 블루
+              dark: '#00224b',      // 딥 네이비
+              accent: '#005bb5',    // 서브 블루
+              light: '#e8f1fc',     // 연한 블루 배경
+              gold: '#c49a45',      // 부산대 앰버 골드 포인트
+            }
+          },
+          boxShadow: {
+            'card': '0 2px 8px -2px rgba(0, 34, 75, 0.06), 0 8px 24px -4px rgba(0, 34, 75, 0.08)',
+            'card-hover': '0 12px 32px -4px rgba(0, 34, 75, 0.14), 0 4px 12px -2px rgba(0, 34, 75, 0.08)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- PapaParse for robust CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    /* Custom Scrollbar & Micro-transitions */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Pulse badge for live sync */
+    @keyframes pulse-dot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.6; }
+    }
+    .pulse-dot {
+      animation: pulse-dot 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col font-sans selection:bg-pnu-light selection:text-pnu-blue">
+
+  <!-- TOP UTILITY / LIVE STATUS BAR -->
+  <div class="bg-pnu-dark text-slate-200 text-xs border-b border-slate-700/60">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-pnu-accent/50 text-white tracking-wider">PNU HRD</span>
+        <span class="hidden sm:inline text-slate-300">2026학년도 교직원 직무역량 강화 연수 포털</span>
+      </div>
+      <div class="flex items-center space-x-4">
+        <!-- Live Sync Status -->
+        <div id="syncStatus" class="flex items-center space-x-1.5 text-slate-300">
+          <span id="syncDot" class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot inline-block"></span>
+          <span id="syncText" class="text-[11px]">구글 시트 실시간 동기화 중</span>
+        </div>
+        <button id="btnRefresh" onclick="loadSheetData(true)" title="구글 시트 데이터 즉시 새로고침" class="hover:text-white flex items-center space-x-1 text-[11px] text-slate-300 bg-slate-800/80 hover:bg-slate-700 px-2 py-0.5 rounded transition">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          <span class="hidden sm:inline">새로고침</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN NAVIGATION (GNB) -->
+  <header class="bg-white/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        <!-- University Logo & Portal Name -->
+        <a href="index.html" class="flex items-center space-x-3 group">
+          <!-- PNU Emblem SVG -->
+          <div class="w-11 h-11 rounded-xl bg-pnu-blue flex items-center justify-center text-white font-black text-xl shadow-md shadow-pnu-blue/20 group-hover:scale-105 transition-transform duration-200">
+            <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+              <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-[11px] font-bold tracking-widest text-pnu-blue uppercase">Pusan National University</div>
+            <div class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <span>부산대학교 직무연수</span>
+              <span class="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-pnu-blue border border-blue-200/80 font-bold">2026</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- Quick Links -->
+        <div class="flex items-center space-x-2 sm:space-x-4">
+          <a href="https://hrd.pusan.ac.kr" target="_blank" rel="noopener noreferrer" class="hidden md:flex items-center text-xs font-semibold text-slate-600 hover:text-pnu-blue transition px-3 py-2 rounded-lg hover:bg-slate-100">
+            <span>인재개발원 바로가기</span>
+            <svg class="w-3.5 h-3.5 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+          </a>
+          <a href="#searchSection" class="inline-flex items-center space-x-1 px-4 py-2 text-xs font-bold text-white bg-pnu-blue hover:bg-pnu-accent rounded-lg shadow-sm transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <span>연수 과정 검색</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO BANNER SECTION -->
+  <section class="relative bg-gradient-to-br from-pnu-dark via-pnu-blue to-[#002855] text-white pt-14 pb-16 overflow-hidden">
+    <!-- Background Architectural Wave Pattern -->
+    <div class="absolute inset-0 opacity-10 pointer-events-none">
+      <svg class="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="M0,0 L100,0 L100,100 L0,100 Z" fill="none"/>
+        <path d="M0,50 Q25,20 50,50 T100,50 L100,100 L0,100 Z" fill="currentColor"/>
+      </svg>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="max-w-3xl">
+        <!-- Badge -->
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-blue-100 text-xs font-semibold mb-4">
+          <span class="w-2 h-2 rounded-full bg-pnu-gold"></span>
+          <span>2026학년도 교직원 역량 개발 프로그램</span>
+        </div>
+        
+        <!-- Main Title -->
+        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight mb-4">
+          미래 교육·연구 혁신을 지원하는<br class="hidden sm:inline"/>
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-100 via-white to-blue-200">
+            2026 국립부산대학교 직무연수
+          </span>
+        </h1>
+        
+        <!-- Description -->
+        <p class="text-sm sm:text-base text-blue-100/90 leading-relaxed mb-8 max-w-2xl font-normal">
+          법정의무교육부터 최신 생성형 AI·데이터 분석, 대학회계·계약 실무까지 — 국립부산대학교 교직원의 전문성 향상과 안심 근무환경 조성을 위한 맞춤형 직무연수 과정을 한곳에서 확인하세요.
+        </p>
+
+        <!-- KPI SUMMARY BAR -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+          <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-xl p-3.5">
+            <div class="text-xs text-blue-200 font-medium mb-1">총 개설 과정</div>
+            <div class="text-2xl font-black text-white flex items-baseline gap-1">
+              <span id="kpiTotal">--</span><span class="text-xs font-normal text-blue-200">개 과정</span>
+            </div>
+          </div>
+          <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-xl p-3.5 border-l-4 border-l-amber-400">
+            <div class="text-xs text-amber-200 font-medium mb-1">법정의무 (필수)</div>
+            <div class="text-2xl font-black text-amber-300 flex items-baseline gap-1">
+              <span id="kpiRequired">--</span><span class="text-xs font-normal text-amber-200">개 과정</span>
+            </div>
+          </div>
+          <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-xl p-3.5">
+            <div class="text-xs text-blue-200 font-medium mb-1">정보화·AI 혁신</div>
+            <div class="text-2xl font-black text-white flex items-baseline gap-1">
+              <span id="kpiAi">--</span><span class="text-xs font-normal text-blue-200">개 과정</span>
+            </div>
+          </div>
+          <div class="bg-white/10 backdrop-blur-sm border border-white/15 rounded-xl p-3.5">
+            <div class="text-xs text-blue-200 font-medium mb-1">온라인 상시 수강</div>
+            <div class="text-2xl font-black text-white flex items-baseline gap-1">
+              <span id="kpiOnline">--</span><span class="text-xs font-normal text-blue-200">개 과정</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SEARCH & FILTER SECTION (STICKY CONTROLLER) -->
+  <section id="searchSection" class="bg-white border-b border-slate-200 sticky top-20 z-30 shadow-sm transition-all">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      
+      <!-- Top Row: Search Input & Quick Selectors -->
+      <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+        <!-- Search Input with Clear Button -->
+        <div class="relative flex-1">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="과정명, 부서명(인재개발원/정보화본부), 키워드(AI, 엑셀, 계약, 청렴 등) 실시간 검색" 
+            class="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-pnu-blue focus:border-transparent transition"
+            oninput="handleSearchInput()"
+          >
+          <button 
+            id="btnClearSearch" 
+            onclick="clearSearch()" 
+            class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+            title="검색어 지우기"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Filter Dropdowns Row -->
+        <div class="flex items-center gap-2">
+          <!-- 이수구분 드롭다운 / 칩 -->
+          <div class="relative min-w-[120px]">
+            <select 
+              id="typeSelect" 
+              onchange="handleFilterChange()" 
+              class="w-full text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pnu-blue transition"
+            >
+              <option value="ALL">이수구분 전체</option>
+              <option value="필수">🔴 필수 (법정의무)</option>
+              <option value="권장">🔵 권장</option>
+              <option value="선택">⚪ 선택</option>
+            </select>
+          </div>
+
+          <!-- 대상 드롭다운 -->
+          <div class="relative min-w-[110px]">
+            <select 
+              id="targetSelect" 
+              onchange="handleFilterChange()" 
+              class="w-full text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pnu-blue transition"
+            >
+              <option value="ALL">교육대상 전체</option>
+              <option value="전 직원">전 직원</option>
+              <option value="실무자">실무자</option>
+              <option value="관리자">관리자</option>
+              <option value="신규자">신규자</option>
+            </select>
+          </div>
+
+          <!-- 교육방식 드롭다운 -->
+          <div class="relative min-w-[110px]">
+            <select 
+              id="methodSelect" 
+              onchange="handleFilterChange()" 
+              class="w-full text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-pnu-blue transition"
+            >
+              <option value="ALL">교육방식 전체</option>
+              <option value="온라인">온라인</option>
+              <option value="집합">집합 (대면)</option>
+              <option value="혼합">혼합 (블렌디드)</option>
+            </select>
+          </div>
+
+          <!-- Reset Button -->
+          <button 
+            onclick="resetAllFilters()" 
+            title="필터 및 검색어 초기화" 
+            class="px-3 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl flex items-center gap-1 transition"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span class="hidden sm:inline">초기화</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bottom Row: Category Horizontal Tabs -->
+      <div class="mt-3 pt-3 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-1" id="categoryTabContainer">
+        <!-- Dynamic Category Tabs will be rendered here -->
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTENT & RESULTS INFO -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+    
+    <!-- Result Header / Counters -->
+    <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center space-x-2">
+        <h2 class="text-base sm:text-lg font-bold text-slate-900" id="resultHeading">연수 과정 목록</h2>
+        <span id="resultCountBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-pnu-light text-pnu-blue border border-blue-200">
+          검색 중...
+        </span>
+      </div>
+
+      <!-- View Option or Sort Indicator -->
+      <div class="text-xs text-slate-500 flex items-center gap-1">
+        <span>* 카드를 클릭하면 상세 안내 페이지로 이동합니다.</span>
+      </div>
+    </div>
+
+    <!-- COURSE CARD GRID CONTAINER -->
+    <div id="courseGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Loading Skeleton (Initial 6 items) -->
+      <div class="skeleton-card bg-white rounded-2xl p-6 border border-slate-200 shadow-sm animate-pulse space-y-4">
+        <div class="flex justify-between items-center">
+          <div class="h-5 bg-slate-200 rounded w-20"></div>
+          <div class="h-5 bg-slate-200 rounded-full w-14"></div>
+        </div>
+        <div class="h-6 bg-slate-200 rounded w-3/4"></div>
+        <div class="h-4 bg-slate-200 rounded w-full"></div>
+        <div class="h-4 bg-slate-200 rounded w-2/3"></div>
+        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+          <div class="h-4 bg-slate-200 rounded"></div>
+          <div class="h-4 bg-slate-200 rounded"></div>
+        </div>
+      </div>
+      <div class="skeleton-card bg-white rounded-2xl p-6 border border-slate-200 shadow-sm animate-pulse space-y-4">
+        <div class="flex justify-between items-center">
+          <div class="h-5 bg-slate-200 rounded w-20"></div>
+          <div class="h-5 bg-slate-200 rounded-full w-14"></div>
+        </div>
+        <div class="h-6 bg-slate-200 rounded w-3/4"></div>
+        <div class="h-4 bg-slate-200 rounded w-full"></div>
+        <div class="h-4 bg-slate-200 rounded w-2/3"></div>
+        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+          <div class="h-4 bg-slate-200 rounded"></div>
+          <div class="h-4 bg-slate-200 rounded"></div>
+        </div>
+      </div>
+      <div class="skeleton-card bg-white rounded-2xl p-6 border border-slate-200 shadow-sm animate-pulse space-y-4">
+        <div class="flex justify-between items-center">
+          <div class="h-5 bg-slate-200 rounded w-20"></div>
+          <div class="h-5 bg-slate-200 rounded-full w-14"></div>
+        </div>
+        <div class="h-6 bg-slate-200 rounded w-3/4"></div>
+        <div class="h-4 bg-slate-200 rounded w-full"></div>
+        <div class="h-4 bg-slate-200 rounded w-2/3"></div>
+        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+          <div class="h-4 bg-slate-200 rounded"></div>
+          <div class="h-4 bg-slate-200 rounded"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMPTY STATE (HIDDEN BY DEFAULT) -->
+    <div id="emptyState" class="hidden text-center py-16 px-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm">
+      <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <h3 class="text-lg font-bold text-slate-800 mb-1">일치하는 연수 과정을 찾을 수 없습니다</h3>
+      <p class="text-sm text-slate-500 max-w-md mx-auto mb-6">검색어나 선택하신 필터 조건을 변경하여 다시 확인해보세요.</p>
+      <button onclick="resetAllFilters()" class="inline-flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-pnu-blue hover:bg-pnu-accent transition shadow">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <span>필터 초기화하고 전체 과정 보기</span>
+      </button>
+    </div>
+
+    <!-- ERROR STATE (HIDDEN BY DEFAULT) -->
+    <div id="errorState" class="hidden text-center py-12 px-4 bg-rose-50 border border-rose-200 rounded-2xl">
+      <div class="w-12 h-12 mx-auto mb-3 text-rose-500">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+      </div>
+      <h3 class="text-base font-bold text-rose-800 mb-1">구글 시트 데이터를 불러오지 못했습니다</h3>
+      <p id="errorMsg" class="text-xs text-rose-600 mb-4">네트워크 연결 상태 또는 시트 권한을 확인해주세요.</p>
+      <button onclick="loadSheetData(true)" class="px-4 py-2 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 transition">
+        다각도로 재시도
+      </button>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-slate-200 text-slate-500 text-xs mt-12 py-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-lg bg-pnu-blue flex items-center justify-center text-white font-bold text-sm">
+            PNU
+          </div>
+          <div>
+            <div class="font-bold text-slate-800 text-sm">국립부산대학교 직무연수 안내센터</div>
+            <div class="text-slate-400 text-[11px] mt-0.5">부산광역시 금정구 부산대학로63번길 2 (장전동) 국립부산대학교</div>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-4 text-[11px]">
+          <span class="text-slate-400">데이터 소스: Google Sheets (실시간 연동)</span>
+          <span class="text-slate-300">|</span>
+          <a href="https://www.pusan.ac.kr" target="_blank" rel="noopener noreferrer" class="hover:text-pnu-blue transition">부산대학교 대표홈페이지</a>
+          <span class="text-slate-300">|</span>
+          <a href="https://hrd.pusan.ac.kr" target="_blank" rel="noopener noreferrer" class="hover:text-pnu-blue transition">인재개발원</a>
+        </div>
+      </div>
+      <div class="mt-6 pt-6 border-t border-slate-100 text-center text-slate-400 text-[11px]">
+        &copy; 2026 Pusan National University. All rights reserved.
+      </div>
+    </div>
+  </footer>
+
+  <!-- APPLICATION LOGIC -->
+  <script>
+    // Google Sheets Config
+    const SHEET_ID = '1sWeq6LCPTp0I6ith07XQizLm-KcDvAcbeNZBHkOBOvk';
+    const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=data&headers=1`;
+    const FALLBACK_URL = 'sample_data.csv'; // Local verified backup
+
+    // State
+    let allCourses = [];
+    let currentCategory = 'ALL';
+    let currentType = 'ALL';
+    let currentTarget = 'ALL';
+    let currentMethod = 'ALL';
+    let searchQuery = '';
+
+    // Category List definition (ordered for optimal academic browsing)
+    const ORDERED_CATEGORIES = [
+      'ALL',
+      '법정의무교육',
+      '정보화·AI·데이터',
+      '직무공통·문서',
+      '예산·회계·계약',
+      '인사·노무',
+      '대학행정 특화',
+      '소통·CS·민원',
+      '리더십·역량',
+      '안전·보건',
+      '어학·글로벌'
+    ];
+
+    // Initialize Page
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSheetData();
+    });
+
+    // Fetch and Parse Data
+    async function loadSheetData(forceRefresh = false) {
+      updateSyncStatus('loading', '구글 시트에서 최신 데이터 불러오는 중...');
+      
+      const requestUrl = `${GVIZ_URL}&_ts=${Date.now()}`;
+
+      try {
+        const response = await fetch(requestUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: 시트 응답 실패`);
+        }
+        const csvText = await response.text();
+        parseCSVData(csvText, 'live');
+      } catch (err) {
+        console.warn('Live Google Sheet fetch failed, trying local fallback:', err);
+        // Fallback to local sample_data.csv for rock-solid stability
+        try {
+          const fbResponse = await fetch(FALLBACK_URL);
+          if (!fbResponse.ok) throw new Error('로컬 백업 데이터 로드 실패');
+          const fbCsv = await fbResponse.text();
+          parseCSVData(fbCsv, 'fallback');
+          updateSyncStatus('warning', '구글 시트 통신 지연 (로컬 캐시 데이터 표시 중)');
+        } catch (fbErr) {
+          showError(`데이터 연동 오류: ${err.message}`);
+          updateSyncStatus('error', '동기화 실패');
+        }
+      }
+    }
+
+    function parseCSVData(csvString, sourceMode) {
+      Papa.parse(csvString, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: h => h ? h.trim() : '',
+        transform: val => val ? val.trim() : '',
+        complete: results => {
+          if (!results.data || results.data.length === 0) {
+            showError('데이터가 비어있습니다.');
+            return;
+          }
+          
+          // Filter out rows without course code
+          allCourses = results.data.filter(row => row['과정코드'] && row['과정명']);
+          
+          if (sourceMode === 'live') {
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            updateSyncStatus('success', `동기화 완료 (${timeStr})`);
+          }
+
+          // Update KPIs
+          updateKPIs(allCourses);
+
+          // Build Category Tabs
+          renderCategoryTabs();
+
+          // Render Cards
+          applyFiltersAndRender();
+        },
+        error: parseErr => {
+          showError(`CSV 파싱 오류: ${parseErr.message}`);
+        }
+      });
+    }
+
+    // Update KPI Counters
+    function updateKPIs(data) {
+      const total = data.length;
+      const required = data.filter(c => (c['이수구분'] || '').includes('필수')).length;
+      const ai = data.filter(c => (c['분야'] || '').includes('정보화') || (c['분야'] || '').includes('AI')).length;
+      const online = data.filter(c => (c['교육방식'] || '').includes('온라인')).length;
+
+      document.getElementById('kpiTotal').textContent = total;
+      document.getElementById('kpiRequired').textContent = required;
+      document.getElementById('kpiAi').textContent = ai;
+      document.getElementById('kpiOnline').textContent = online;
+    }
+
+    // Render Category Tabs
+    function renderCategoryTabs() {
+      const container = document.getElementById('categoryTabContainer');
+      container.innerHTML = '';
+
+      ORDERED_CATEGORIES.forEach(cat => {
+        let count = 0;
+        if (cat === 'ALL') {
+          count = allCourses.length;
+        } else {
+          count = allCourses.filter(c => c['분야'] === cat).length;
+        }
+
+        const isSelected = (currentCategory === cat);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.onclick = () => selectCategory(cat);
+        btn.className = `whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold transition flex items-center gap-1.5 ${
+          isSelected 
+            ? 'bg-pnu-blue text-white shadow-sm font-bold' 
+            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+        }`;
+        
+        btn.innerHTML = `
+          <span>${cat === 'ALL' ? '전체 분야' : cat}</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-white text-slate-500 font-bold'}">
+            ${count}
+          </span>
+        `;
+        container.appendChild(btn);
+      });
+    }
+
+    // Tab Selection
+    function selectCategory(category) {
+      currentCategory = category;
+      renderCategoryTabs();
+      applyFiltersAndRender();
+    }
+
+    // Filter Change Handlers
+    function handleSearchInput() {
+      const input = document.getElementById('searchInput');
+      searchQuery = input.value.trim().toLowerCase();
+      
+      const clearBtn = document.getElementById('btnClearSearch');
+      if (searchQuery.length > 0) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+
+      applyFiltersAndRender();
+    }
+
+    function clearSearch() {
+      document.getElementById('searchInput').value = '';
+      searchQuery = '';
+      document.getElementById('btnClearSearch').classList.add('hidden');
+      applyFiltersAndRender();
+    }
+
+    function handleFilterChange() {
+      currentType = document.getElementById('typeSelect').value;
+      currentTarget = document.getElementById('targetSelect').value;
+      currentMethod = document.getElementById('methodSelect').value;
+      applyFiltersAndRender();
+    }
+
+    function resetAllFilters() {
+      document.getElementById('searchInput').value = '';
+      searchQuery = '';
+      document.getElementById('btnClearSearch').classList.add('hidden');
+      
+      document.getElementById('typeSelect').value = 'ALL';
+      document.getElementById('targetSelect').value = 'ALL';
+      document.getElementById('methodSelect').value = 'ALL';
+
+      currentCategory = 'ALL';
+      currentType = 'ALL';
+      currentTarget = 'ALL';
+      currentMethod = 'ALL';
+
+      renderCategoryTabs();
+      applyFiltersAndRender();
+    }
+
+    // Core Filtering Logic
+    function applyFiltersAndRender() {
+      const filtered = allCourses.filter(item => {
+        // Category Filter
+        if (currentCategory !== 'ALL' && item['분야'] !== currentCategory) {
+          return false;
+        }
+
+        // Type Filter (필수, 권장, 선택)
+        if (currentType !== 'ALL') {
+          const itemType = item['이수구분'] || '';
+          if (currentType === '필수' && !itemType.includes('필수')) return false;
+          if (currentType === '권장' && !itemType.includes('권장')) return false;
+          if (currentType === '선택' && !itemType.includes('선택')) return false;
+        }
+
+        // Target Filter
+        if (currentTarget !== 'ALL') {
+          const itemTarget = item['대상'] || '';
+          if (!itemTarget.includes(currentTarget)) return false;
+        }
+
+        // Method Filter
+        if (currentMethod !== 'ALL') {
+          const itemMethod = item['교육방식'] || '';
+          if (!itemMethod.includes(currentMethod)) return false;
+        }
+
+        // Search Query (Search-as-you-type)
+        if (searchQuery) {
+          const searchTargets = [
+            item['과정명'] || '',
+            item['과정코드'] || '',
+            item['분야'] || '',
+            item['담당부서'] || '',
+            item['한줄소개'] || '',
+            item['상세소개'] || '',
+            item['주요내용'] || '',
+            item['대상'] || ''
+          ].join(' ').toLowerCase();
+
+          if (!searchTargets.includes(searchQuery)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      renderCourseCards(filtered);
+    }
+
+    // Render Cards in Grid
+    function renderCourseCards(courses) {
+      const grid = document.getElementById('courseGrid');
+      const emptyState = document.getElementById('emptyState');
+      const badge = document.getElementById('resultCountBadge');
+
+      badge.textContent = `${courses.length}개 과정`;
+
+      if (courses.length === 0) {
+        grid.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      grid.innerHTML = '';
+
+      courses.forEach(course => {
+        const card = createCourseCard(course);
+        grid.appendChild(card);
+      });
+    }
+
+    // Card Component Builder
+    function createCourseCard(course) {
+      const card = document.createElement('div');
+      card.className = 'group bg-white rounded-2xl border border-slate-200/90 hover:border-pnu-accent/50 p-6 shadow-card hover:shadow-card-hover transition-all duration-200 flex flex-col justify-between cursor-pointer relative overflow-hidden';
+      
+      // Navigate to detail page on click
+      card.onclick = (e) => {
+        // Prevent trigger if clicking an internal link
+        if (e.target.closest('a')) return;
+        window.location.href = `detail.html?code=${encodeURIComponent(course['과정코드'])}`;
+      };
+
+      // Type Badge Styling
+      const typeStr = course['이수구분'] || '선택';
+      let typeBadgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
+      let accentBar = '';
+
+      if (typeStr.includes('필수')) {
+        typeBadgeClass = 'bg-rose-50 text-rose-700 border-rose-200 font-bold';
+        accentBar = '<div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-500 to-amber-500"></div>';
+      } else if (typeStr.includes('권장')) {
+        typeBadgeClass = 'bg-blue-50 text-blue-700 border-blue-200 font-semibold';
+        accentBar = '<div class="absolute top-0 left-0 right-0 h-1 bg-pnu-blue"></div>';
+      }
+
+      // Method Badge
+      const methodStr = course['교육방식'] || '온라인';
+      let methodIcon = `
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+      `;
+      if (methodStr === '집합') {
+        methodIcon = `
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
+        `;
+      } else if (methodStr === '혼합') {
+        methodIcon = `
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+          </svg>
+        `;
+      }
+
+      card.innerHTML = `
+        ${accentBar}
+        <div>
+          <!-- Top Row: Category & Badges -->
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <span class="text-[11px] font-bold text-pnu-accent bg-blue-50/80 px-2 py-0.5 rounded border border-blue-100">
+              ${escapeHtml(course['분야'] || '기타')}
+            </span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-mono text-slate-400 font-semibold">${escapeHtml(course['과정코드'])}</span>
+              <span class="text-[11px] px-2 py-0.5 rounded border ${typeBadgeClass}">
+                ${escapeHtml(typeStr)}
+              </span>
+            </div>
+          </div>
+
+          <!-- Course Title -->
+          <h3 class="text-base sm:text-lg font-bold text-slate-900 group-hover:text-pnu-blue transition-colors duration-150 line-clamp-2 leading-snug mb-2">
+            ${escapeHtml(course['과정명'])}
+          </h3>
+
+          <!-- One Line Summary -->
+          <p class="text-xs text-slate-600 line-clamp-2 leading-relaxed mb-4">
+            ${escapeHtml(course['한줄소개'] || '교직원 직무역량 강화를 위한 전문 연수 과정입니다.')}
+          </p>
+
+          <!-- Quick Specs Grid -->
+          <div class="grid grid-cols-2 gap-2 bg-slate-50/90 rounded-xl p-3 border border-slate-100 text-xs text-slate-600 mb-5">
+            <div class="flex items-center space-x-1.5">
+              <span class="text-slate-400">${methodIcon}</span>
+              <span class="font-medium truncate">${escapeHtml(course['교육방식'] || '온라인')}</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span class="font-medium truncate">${escapeHtml(course['교육시간'] || '-')}</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+              <span class="font-medium truncate">${escapeHtml(course['대상'] || '전 직원')}</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+              </svg>
+              <span class="font-medium truncate">${escapeHtml(course['담당부서'] || '인재개발원')}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card Footer -->
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+          <div class="text-[11px] text-slate-500 truncate mr-2">
+            <span class="text-slate-400">신청: </span>
+            <span class="font-semibold text-slate-700">${escapeHtml(course['신청기간'] || '상시')}</span>
+          </div>
+
+          <a 
+            href="detail.html?code=${encodeURIComponent(course['과정코드'])}" 
+            class="inline-flex items-center text-xs font-bold text-pnu-blue group-hover:text-pnu-accent hover:underline whitespace-nowrap"
+          >
+            <span>상세보기</span>
+            <svg class="w-3.5 h-3.5 ml-1 transform group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </a>
+        </div>
+      `;
+
+      return card;
+    }
+
+    // Status Bar Helper
+    function updateSyncStatus(status, text) {
+      const dot = document.getElementById('syncDot');
+      const label = document.getElementById('syncText');
+      label.textContent = text;
+
+      dot.className = 'w-2 h-2 rounded-full inline-block ';
+      if (status === 'loading') {
+        dot.className += 'bg-amber-400 pulse-dot';
+      } else if (status === 'success') {
+        dot.className += 'bg-emerald-400';
+      } else if (status === 'warning') {
+        dot.className += 'bg-orange-400';
+      } else {
+        dot.className += 'bg-rose-500';
+      }
+    }
+
+    function showError(message) {
+      const errorBox = document.getElementById('errorState');
+      const errorMsg = document.getElementById('errorMsg');
+      errorMsg.textContent = message;
+      errorBox.classList.remove('hidden');
+      document.getElementById('courseGrid').innerHTML = '';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+  </script>
+</body>
+</html>
